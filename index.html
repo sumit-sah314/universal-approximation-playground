@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Universal Approximation Playground</title>
+  <style>
+    :root{
+      --bg:#071018; --panel:#0b1620; --panel2:#0e1d28; --text:#eef7ff; --muted:#8aa0b2;
+      --grid:#173244; --axis:#68859a; --target:#ffd166; --approx:#52d9ff; --relu:#ff6b9d;
+      --good:#6fe7a7; --border:#173143; --shadow:0 20px 60px rgba(0,0,0,.28);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(circle at 20% 0%,#0d2231 0,#071018 36%,#050b10 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+    .app{max-width:1500px;margin:0 auto;padding:26px}
+    .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}
+    .eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#64dfff;font-weight:800}
+    h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(31px,4vw,52px);line-height:1.02;margin:8px 0 10px;font-weight:500}
+    .subtitle{color:var(--muted);font-size:15px;max-width:760px;line-height:1.55}
+    .pill{border:1px solid var(--border);background:rgba(10,24,34,.75);border-radius:999px;padding:9px 13px;color:#bad0df;font-size:12px;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px}
+    .panel{background:linear-gradient(180deg,rgba(14,29,40,.96),rgba(8,19,27,.96));border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow)}
+    .controls{padding:18px;display:flex;flex-direction:column;gap:16px;position:sticky;top:18px;height:max-content}
+    .section-title{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7d95a7;font-weight:800;margin-bottom:10px}
+    label{font-size:13px;color:#c8d7e2;display:flex;justify-content:space-between;gap:10px;margin-bottom:8px}
+    select,input[type=range],input[type=number],button{width:100%}
+    select,input[type=number]{appearance:none;background:#07131c;color:#edf8ff;border:1px solid #234254;border-radius:12px;padding:11px 12px;font-size:14px;outline:none}
+    input[type=number]{font-variant-numeric:tabular-nums}
+    .range-row{display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:center}
+    input[type=range]{accent-color:#52d9ff}
+    .number-chip{border:1px solid #28495c;background:#08141d;border-radius:11px;text-align:center;padding:8px;font-variant-numeric:tabular-nums;color:#7ee7ff;font-weight:700}
+    .btn{cursor:pointer;border:1px solid #28506a;background:#0a1a25;color:#eaf8ff;border-radius:12px;padding:11px 12px;font-weight:800;transition:.2s transform,.2s border-color,.2s background}
+    .btn:hover{transform:translateY(-1px);border-color:#4ecdeb;background:#0e2432}.btn.primary{background:linear-gradient(135deg,#0f85a7,#1557a4);border-color:#35ccee}.btn.ghost{color:#bcd0dc}
+    .twocol{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .formula{font-family:Georgia,"Times New Roman",serif;background:#07131c;border:1px solid #183447;border-radius:14px;padding:13px;line-height:1.6;color:#ddecf6;font-size:14px}
+    .formula b{color:#68dcff;font-weight:500}
+    .hint{font-size:12px;line-height:1.45;color:#8198aa}
+    .main{display:grid;grid-template-rows:auto auto auto;gap:18px}
+    .hero{padding:16px}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:4px 3px 12px}
+    .legend{display:flex;flex-wrap:wrap;gap:12px;color:#9db2c1;font-size:12px}.legend span{display:flex;align-items:center;gap:6px}.dot{width:9px;height:9px;border-radius:50%;display:inline-block}.target{background:var(--target)}.approx{background:var(--approx)}.relu{background:var(--relu)}
+    canvas{display:block;width:100%;border-radius:14px;background:linear-gradient(180deg,#06121a,#071018);border:1px solid #173143}
+    #mainCanvas{height:480px;cursor:crosshair}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.metric{border:1px solid #173143;background:#07131c;border-radius:13px;padding:10px 12px}.metric .k{color:#7890a1;font-size:11px;text-transform:uppercase;letter-spacing:.09em}.metric .v{font-size:18px;margin-top:4px;font-variant-numeric:tabular-nums}
+    .lower{display:grid;grid-template-columns:1.08fr .92fr;gap:18px}.network,.inspect{padding:16px;min-height:360px}
+    #networkSvg{width:100%;height:300px;display:block;background:linear-gradient(180deg,#06131c,#071018);border:1px solid #173143;border-radius:14px}
+    .inspect-grid{display:grid;grid-template-columns:1fr;gap:12px}.neuron-title{display:flex;align-items:center;justify-content:space-between}.badge{padding:6px 9px;border:1px solid #4a2940;background:#1a1020;border-radius:999px;color:#ff9cbd;font-size:11px;font-weight:800}
+    .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kv .box{background:#07131c;border:1px solid #173143;border-radius:12px;padding:10px}.kv .box small{display:block;color:#748d9e;margin-bottom:4px}.kv .box strong{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#e9f6ff}
+    #reluCanvas{height:155px}.explain{background:#081721;border-left:3px solid #52d9ff;border-radius:9px;padding:11px 12px;color:#a9c0cf;font-size:13px;line-height:1.5}
+    .timeline{padding:16px}.steps{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:3px 0 6px}.step{min-width:42px;height:42px;border-radius:50%;display:grid;place-items:center;border:1px solid #24475b;background:#07131c;color:#91a8b7;font-size:12px;cursor:pointer;transition:.2s}.step.active{border-color:#66ddff;color:#061018;background:#66ddff;box-shadow:0 0 0 4px rgba(102,221,255,.09)}.step.done{border-color:#3d8aa1;color:#bcefff}.line{height:1px;min-width:14px;background:#1b3a4d}
+    .draw-note{display:none;color:#ffd166;font-size:12px;margin-top:8px}.draw-note.show{display:block}
+    .window-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.window-grid label{display:block;margin:0}.window-grid small{display:block;color:#7890a1;margin:0 0 5px}
+    .visibility-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vis-toggle{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0;padding:9px 10px;border:1px solid #173143;background:#07131c;border-radius:11px;color:#b9ccd9;font-size:12px;cursor:pointer;user-select:none}.vis-toggle input{width:auto;margin:0;accent-color:#52d9ff}.vis-toggle:hover{border-color:#31586d}.vis-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}.vis-target{background:var(--target)}.vis-approx{background:var(--approx)}.vis-selected{background:var(--relu)}.vis-all{background:#8a7cff}.vis-guides{background:#68859a}.vis-activation{background:#ff6b9d}.vis-derivative{background:#52d9ff}
+    .activation-lab{padding:16px}.activation-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(290px,.75fr);gap:18px;align-items:stretch}.activation-plot{background:#07131c;border:1px solid #173143;border-radius:14px;padding:10px}.activation-copy{display:flex;flex-direction:column;gap:11px}.activation-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}.activation-card{cursor:pointer;border:1px solid #24475b;background:#07131c;border-radius:12px;padding:9px 8px;text-align:center;color:#9cb4c4;font-size:12px;font-weight:800}.activation-card.active{border-color:#65ddff;color:#071018;background:#65ddff}.activation-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.activation-stat{border:1px solid #173143;background:#07131c;border-radius:12px;padding:10px}.activation-stat small{display:block;color:#7890a1;margin-bottom:4px}.activation-stat strong{font-size:13px;color:#eaf7ff}.zreadout{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#8fe8ff;font-size:12px}
+    #activationCanvas{height:285px}.mode-badge{display:inline-flex;align-items:center;gap:7px;border:1px solid #24475b;background:#07131c;border-radius:999px;padding:6px 10px;color:#9fb7c7;font-size:11px}.mode-badge b{color:#72e2ff}
+    @media(max-width:1050px){.grid{grid-template-columns:1fr}.controls{position:static}.lower{grid-template-columns:1fr}.activation-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:620px){.app{padding:14px}.topbar{flex-direction:column}.metrics{grid-template-columns:1fr 1fr}.kv{grid-template-columns:1fr}.twocol{grid-template-columns:1fr}.activation-cards{grid-template-columns:1fr 1fr}.window-grid{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Visual proof • 1D shallow neural networks</div>
+      <h1>Universal Approximation Playground</h1>
+      <div class="subtitle">Build a target function neuron by neuron. Compare ReLU, Leaky ReLU, Sigmoid, Tanh, and Softplus while watching hidden-unit activations, weights, biases, and approximation error change live.</div>
+    </div>
+    <div class="pill">Manim-inspired • interactive construction</div>
+  </header>
+
+  <div class="grid">
+    <aside class="panel controls">
+      <div>
+        <div class="section-title">Target function</div>
+        <label>Preset</label>
+        <select id="preset">
+          <option value="quadratic">f(x) = 0.35x² − 1.5</option>
+          <option value="sine">f(x) = 2 sin(1.25x)</option>
+          <option value="mixed">f(x) = sin(1.6x) + 0.18x² − 1</option>
+          <option value="abs">f(x) = |x − 0.7| − 1</option>
+          <option value="draw">✏ Draw your own curve</option>
+        </select>
+        <div id="drawNote" class="draw-note">Drag directly on the main graph to draw the target.</div>
+      </div>
+
+      <div>
+        <div class="section-title">Network</div>
+        <label>Activation <span>σ(z)</span></label>
+        <select id="activation">
+          <option value="relu">ReLU — max(0,z)</option>
+          <option value="leaky">Leaky ReLU — max(0.1z,z)</option>
+          <option value="sigmoid">Sigmoid — 1/(1+e⁻ᶻ)</option>
+          <option value="tanh">Tanh — tanh(z)</option>
+          <option value="softplus">Softplus — ln(1+eᶻ)</option>
+        </select>
+        <div style="height:12px"></div>
+        <label>Hidden neurons <span id="nText">5</span></label>
+        <div class="range-row"><input id="neurons" type="range" min="1" max="16" value="5" step="1"><div class="number-chip" id="nChip">5</div></div>
+        <div class="hint" style="margin-top:8px">One hidden layer. Each neuron adds one hinge/breakpoint to the approximation.</div>
+      </div>
+
+
+      <div>
+        <div class="section-title">Graph window</div>
+        <div class="window-grid">
+          <label><small>x min</small><input id="xMin" type="number" step="0.5" value="-5"></label>
+          <label><small>x max</small><input id="xMax" type="number" step="0.5" value="5"></label>
+          <label><small>y min</small><input id="yMin" type="number" step="0.5" value="-5"></label>
+          <label><small>y max</small><input id="yMax" type="number" step="0.5" value="5"></label>
+        </div>
+        <button class="btn ghost" id="autoYBtn" style="margin-top:9px">↕ Auto-fit Y range</button>
+      </div>
+
+      <div>
+        <div class="section-title">Curve visibility</div>
+        <div class="visibility-grid">
+          <label class="vis-toggle"><input id="showTarget" type="checkbox" checked><i class="vis-dot vis-target"></i>Target</label>
+          <label class="vis-toggle"><input id="showApprox" type="checkbox" checked><i class="vis-dot vis-approx"></i>Approximation</label>
+          <label class="vis-toggle"><input id="showSelected" type="checkbox" checked><i class="vis-dot vis-selected"></i>Selected neuron</label>
+          <label class="vis-toggle"><input id="showAllUnits" type="checkbox"><i class="vis-dot vis-all"></i>All neurons</label>
+          <label class="vis-toggle"><input id="showGuides" type="checkbox" checked><i class="vis-dot vis-guides"></i>Breakpoints</label>
+          <label class="vis-toggle"><input id="showPoints" type="checkbox" checked><i class="vis-dot vis-selected"></i>Neuron points</label>
+        </div>
+      </div>
+
+      <div class="twocol">
+        <button class="btn" id="removeBtn">− Remove</button>
+        <button class="btn primary" id="addBtn">+ Add neuron</button>
+      </div>
+      <button class="btn ghost" id="playBtn">▶ Animate construction</button>
+
+      <div>
+        <div class="section-title">Constructive form</div>
+        <div class="formula" id="formulaBox"></div>
+        <div class="hint" style="margin-top:8px">For a 1D continuous target, finer piecewise-linear interpolation can get arbitrarily close. ReLU hinges represent those slope changes.</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="panel hero">
+        <div class="panel-head">
+          <div><div class="section-title" style="margin:0 0 4px">Approximation canvas</div><div style="color:#dceaf3;font-size:14px" id="canvasSubtitle">Target vs. sum of ReLU pieces</div></div>
+          <div class="legend"><span><i class="dot target"></i>target f(x)</span><span><i class="dot approx"></i>approximation ĝ(x)</span><span><i class="dot relu"></i>selected hinge</span></div>
+        </div>
+        <canvas id="mainCanvas"></canvas>
+        <div class="metrics">
+          <div class="metric"><div class="k">Hidden neurons</div><div class="v" id="mNeurons">5</div></div>
+          <div class="metric"><div class="k" id="mBreakLabel">Breakpoints</div><div class="v" id="mBreaks">5</div></div>
+          <div class="metric"><div class="k">MSE</div><div class="v" id="mMse">—</div></div>
+          <div class="metric"><div class="k">Max error</div><div class="v" id="mMax">—</div></div>
+        </div>
+      </section>
+
+      <section class="lower">
+        <div class="panel network">
+          <div class="panel-head"><div><div class="section-title" style="margin:0 0 4px">Network view</div><div style="font-size:14px;color:#dceaf3" id="networkSubtitle">1 input → ReLU hidden layer → linear output</div></div></div>
+          <svg id="networkSvg" viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+
+        <div class="panel inspect">
+          <div class="neuron-title"><div><div class="section-title" style="margin:0 0 4px">Neuron inspector</div><div id="selectedName" style="font-size:20px;font-family:Georgia,serif">Neuron 1</div></div><span class="badge" id="selectedBadge">ReLU</span></div>
+          <div class="inspect-grid" style="margin-top:14px">
+            <div class="formula" id="selectedFormula">h₁(x) = ReLU(x − x₁)</div>
+            <div class="kv">
+              <div class="box"><small>input weight w</small><strong id="wVal">1.000</strong></div>
+              <div class="box"><small>bias b</small><strong id="bVal">—</strong></div>
+              <div class="box"><small>output weight a</small><strong id="aVal">—</strong></div>
+            </div>
+            <canvas id="reluCanvas"></canvas>
+            <div class="explain" id="explainBox">This neuron activates at a breakpoint and changes the slope of the network output.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel timeline">
+        <div class="panel-head"><div><div class="section-title" style="margin:0 0 4px">Illustrative proof sequence</div><div style="font-size:14px;color:#dceaf3">Click a step to reveal how adding capacity refines the approximation.</div></div></div>
+        <div class="steps" id="steps"></div>
+      </section>
+
+      <section class="panel activation-lab">
+        <div class="panel-head">
+          <div><div class="section-title" style="margin:0 0 4px">Activation Function Lab</div><div style="font-size:14px;color:#dceaf3">See what each nonlinearity does before it becomes part of the network.</div></div>
+          <div class="mode-badge" id="modeBadge">Mode: <b>constructive ReLU proof</b></div>
+        </div>
+        <div class="activation-cards" id="activationCards">
+          <button class="activation-card active" data-act="relu">ReLU</button>
+          <button class="activation-card" data-act="leaky">Leaky ReLU</button>
+          <button class="activation-card" data-act="sigmoid">Sigmoid</button>
+          <button class="activation-card" data-act="tanh">Tanh</button>
+          <button class="activation-card" data-act="softplus">Softplus</button>
+        </div>
+        <div class="activation-grid">
+          <div class="activation-plot">
+            <div class="visibility-grid" style="margin:0 0 9px">
+              <label class="vis-toggle"><input id="showActivationCurve" type="checkbox" checked><i class="vis-dot vis-activation"></i>σ(z)</label>
+              <label class="vis-toggle"><input id="showDerivativeCurve" type="checkbox" checked><i class="vis-dot vis-derivative"></i>σ′(z)</label>
+            </div>
+            <canvas id="activationCanvas"></canvas>
+          </div>
+          <div class="activation-copy">
+            <div class="formula" id="activationFormula">σ(z) = max(0,z)</div>
+            <div class="activation-stats">
+              <div class="activation-stat"><small>Output range</small><strong id="actRange">[0, ∞)</strong></div>
+              <div class="activation-stat"><small>Smooth?</small><strong id="actSmooth">No — kink at 0</strong></div>
+              <div class="activation-stat"><small>σ(0)</small><strong id="actZero">0</strong></div>
+              <div class="activation-stat"><small>Typical role</small><strong id="actRole">Piecewise-linear hinge</strong></div>
+            </div>
+            <div>
+              <label>Probe input z <span class="zreadout" id="zReadout">z = 1.5</span></label>
+              <input id="zProbe" type="range" min="-6" max="6" step="0.1" value="1.5">
+            </div>
+            <div class="explain" id="activationExplain">ReLU is zero for negative inputs and linear for positive inputs. In the constructive 1D proof, each ReLU creates one controllable change in slope.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<script>
+(() => {
+  let XMIN=-5, XMAX=5, YMIN=-5, YMAX=5;
+  const $=s=>document.querySelector(s);
+  const main=$('#mainCanvas'), unitCanvas=$('#reluCanvas'), actCanvas=$('#activationCanvas'), svg=$('#networkSvg');
+  const neurons=$('#neurons'), preset=$('#preset'), activation=$('#activation');
+  let N=+neurons.value, selected=0, drawing=false, customPts=[];
+  let model=null, playTimer=null;
+  let morph={active:false,t:1,from:null,to:null};
+  const visibility={target:true,approx:true,selected:true,allUnits:false,guides:true,points:true,activation:true,derivative:true};
+
+  const funcs={
+    quadratic:x=>0.35*x*x-1.5,
+    sine:x=>2*Math.sin(1.25*x),
+    mixed:x=>Math.sin(1.6*x)+0.18*x*x-1,
+    abs:x=>Math.abs(x-.7)-1
+  };
+
+  const acts={
+    relu:{name:'ReLU', formula:'σ(z) = max(0, z)', range:'[0, ∞)', smooth:'No — kink at 0', zero:'0', role:'Piecewise-linear hinge', color:'#ff6b9d',
+      fn:z=>Math.max(0,z), d:z=>z>0?1:z<0?0:.5,
+      explain:'ReLU is zero for negative inputs and linear for positive inputs. In the constructive 1D proof, each ReLU creates one controllable change in slope.'},
+    leaky:{name:'Leaky ReLU', formula:'σ(z) = max(0.1z, z)', range:'(−∞, ∞)', smooth:'No — kink at 0', zero:'0', role:'Hinge with a small negative slope', color:'#ff9f6b',
+      fn:z=>z>=0?z:.1*z, d:z=>z>0?1:z<0?.1:.55,
+      explain:'Leaky ReLU keeps a small slope on the negative side, so neurons do not become completely flat there. It is still a non-polynomial piecewise-linear activation.'},
+    sigmoid:{name:'Sigmoid', formula:'σ(z) = 1 / (1 + e^(−z))', range:'(0, 1)', smooth:'Yes', zero:'0.5', role:'Smooth soft threshold', color:'#a98bff',
+      fn:z=>1/(1+Math.exp(-Math.max(-40,Math.min(40,z)))), d:z=>{const y=1/(1+Math.exp(-Math.max(-40,Math.min(40,z))));return y*(1-y)},
+      explain:'Sigmoid smoothly changes from 0 to 1. A hidden layer can combine many shifted soft thresholds to build much more complicated continuous shapes.'},
+    tanh:{name:'Tanh', formula:'σ(z) = tanh(z)', range:'(−1, 1)', smooth:'Yes', zero:'0', role:'Zero-centered soft threshold', color:'#75e6a4',
+      fn:z=>Math.tanh(z), d:z=>1-Math.tanh(z)**2,
+      explain:'Tanh is a smooth, zero-centered S-curve. Shifted and weighted tanh neurons can overlap to approximate continuous target functions.'},
+    softplus:{name:'Softplus', formula:'σ(z) = ln(1 + e^z)', range:'(0, ∞)', smooth:'Yes', zero:'ln 2 ≈ 0.693', role:'Smooth ReLU-like bend', color:'#ffd166',
+      fn:z=>z>30?z:Math.log1p(Math.exp(z)), d:z=>1/(1+Math.exp(-Math.max(-40,Math.min(40,z)))),
+      explain:'Softplus is a smooth version of ReLU. Instead of a sharp corner, it bends gradually; its derivative is the sigmoid function.'}
+  };
+
+  function dprCanvas(c, cssH){
+    const dpr=Math.max(1,window.devicePixelRatio||1), w=c.clientWidth, h=cssH||c.clientHeight;
+    c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c.style.height=h+'px';
+    const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); return {ctx,w,h};
+  }
+  const sx=(x,w)=> (x-XMIN)/(XMAX-XMIN)*w;
+  const sy=(y,h)=> h-(y-YMIN)/(YMAX-YMIN)*h;
+  const ix=(px,w)=>XMIN+px/w*(XMAX-XMIN);
+  const iy=(py,h)=>YMIN+(h-py)/h*(YMAX-YMIN);
+
+  function target(x){
+    if(preset.value!=='draw') return funcs[preset.value](x);
+    if(customPts.length<2) return funcs.mixed(x);
+    const pts=[...customPts].sort((a,b)=>a.x-b.x);
+    if(x<=pts[0].x) return pts[0].y; if(x>=pts.at(-1).x) return pts.at(-1).y;
+    let lo=0; while(lo<pts.length-1 && pts[lo+1].x<x) lo++;
+    const a=pts[lo],b=pts[lo+1],t=(x-a.x)/(b.x-a.x); return a.y+t*(b.y-a.y);
+  }
+
+  function solveLinear(A,b){
+    const n=b.length, M=A.map((r,i)=>[...r,b[i]]);
+    for(let col=0;col<n;col++){
+      let pivot=col; for(let r=col+1;r<n;r++) if(Math.abs(M[r][col])>Math.abs(M[pivot][col])) pivot=r;
+      [M[col],M[pivot]]=[M[pivot],M[col]];
+      if(Math.abs(M[col][col])<1e-10) M[col][col]=1e-10;
+      const div=M[col][col]; for(let c=col;c<=n;c++) M[col][c]/=div;
+      for(let r=0;r<n;r++) if(r!==col){const f=M[r][col]; if(!f)continue; for(let c=col;c<=n;c++) M[r][c]-=f*M[col][c]}
+    }
+    return M.map(r=>r[n]);
+  }
+
+  function leastSquares(Phi,y,lambda=1e-5){
+    const rows=Phi.length, cols=Phi[0].length;
+    const A=Array.from({length:cols},()=>Array(cols).fill(0)), b=Array(cols).fill(0);
+    for(let r=0;r<rows;r++) for(let i=0;i<cols;i++){
+      b[i]+=Phi[r][i]*y[r];
+      for(let j=0;j<cols;j++) A[i][j]+=Phi[r][i]*Phi[r][j];
+    }
+    for(let i=0;i<cols;i++) A[i][i]+=lambda;
+    return solveLinear(A,b);
+  }
+
+  function buildModel(){
+    const act=activation.value, def=acts[act];
+    const xs=[]; for(let i=0;i<N+2;i++) xs.push(XMIN+i*(XMAX-XMIN)/(N+1));
+    const ys=xs.map(target), slopes=[]; for(let i=0;i<xs.length-1;i++) slopes.push((ys[i+1]-ys[i])/(xs[i+1]-xs[i]));
+
+    if(act==='relu'){
+      const hinges=[]; for(let k=1;k<=N;k++) hinges.push({x:xs[k],w:1,b:-xs[k],a:slopes[k]-slopes[k-1]});
+      model={kind:'constructive',xs,ys,slopes,hinges,y0:ys[0],m0:slopes[0],baseBias:ys[0]-slopes[0]*XMIN,baseSlope:slopes[0]};
+      return;
+    }
+
+    const centers=Array.from({length:N},(_,i)=>XMIN+(i+1)*(XMAX-XMIN)/(N+1));
+    const width=(XMAX-XMIN)/Math.max(2,N+1);
+    const baseW=(act==='sigmoid'||act==='tanh')?Math.min(4,2.3/Math.max(.35,width)):Math.min(3,1.35/Math.max(.35,width));
+    const units=centers.map((c,i)=>({x:c,w:baseW,b:-baseW*c,a:0}));
+    const sampleN=Math.max(90,N*12), Phi=[], y=[];
+    for(let r=0;r<sampleN;r++){
+      const x=XMIN+r*(XMAX-XMIN)/(sampleN-1);
+      Phi.push([1,x,...units.map(u=>def.fn(u.w*x+u.b))]); y.push(target(x));
+    }
+    const beta=leastSquares(Phi,y,1e-4);
+    units.forEach((u,i)=>u.a=beta[i+2]);
+    model={kind:'basis-fit',xs,ys,slopes,hinges:units,baseBias:beta[0],baseSlope:beta[1],y0:ys[0],m0:slopes[0]};
+  }
+
+  function approx(x, upto=N){
+    if(!model) return 0;
+    if(model.kind==='constructive'){
+      let y=model.y0+model.m0*(x-XMIN);
+      for(let i=0;i<Math.min(upto,model.hinges.length);i++){const q=model.hinges[i]; y+=q.a*acts.relu.fn(q.w*x+q.b)}
+      return y;
+    }
+    let y=model.baseBias+model.baseSlope*x;
+    const def=acts[activation.value];
+    for(let i=0;i<Math.min(upto,model.hinges.length);i++){const q=model.hinges[i]; y+=q.a*def.fn(q.w*x+q.b)}
+    return y;
+  }
+  function contribution(x,i){const q=model.hinges[i],def=acts[activation.value];return q.a*def.fn(q.w*x+q.b)}
+
+  function grid(ctx,w,h){
+    ctx.clearRect(0,0,w,h); ctx.fillStyle='#071018';ctx.fillRect(0,0,w,h);
+    ctx.lineWidth=1;ctx.strokeStyle='#132c3c';
+    const xStep=Math.pow(10,Math.floor(Math.log10((XMAX-XMIN)/8||1))), yStep=Math.pow(10,Math.floor(Math.log10((YMAX-YMIN)/8||1)));
+    for(let x=Math.ceil(XMIN/xStep)*xStep;x<=XMAX;x+=xStep){ctx.beginPath();ctx.moveTo(sx(x,w),0);ctx.lineTo(sx(x,w),h);ctx.stroke()}
+    for(let y=Math.ceil(YMIN/yStep)*yStep;y<=YMAX;y+=yStep){ctx.beginPath();ctx.moveTo(0,sy(y,h));ctx.lineTo(w,sy(y,h));ctx.stroke()}
+    ctx.strokeStyle='#587488';ctx.lineWidth=1.3;
+    if(XMIN<=0&&XMAX>=0){ctx.beginPath();ctx.moveTo(sx(0,w),0);ctx.lineTo(sx(0,w),h);ctx.stroke()}
+    if(YMIN<=0&&YMAX>=0){ctx.beginPath();ctx.moveTo(0,sy(0,h));ctx.lineTo(w,sy(0,h));ctx.stroke()}
+    ctx.font='11px ui-monospace,monospace';ctx.fillStyle='#688396';ctx.fillText('x',w-14,Math.max(14,Math.min(h-8,sy(0,h)-8)));ctx.fillText('y',Math.max(6,Math.min(w-14,sx(0,w)+8)),14);
+  }
+  function pathFn(ctx,w,h,fn,color,width=2.4,dash=[]){
+    ctx.save();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dash);ctx.beginPath();let started=false;
+    for(let px=0;px<=w;px+=2){const x=ix(px,w),y=fn(x);if(!Number.isFinite(y))continue; const py=sy(y,h);if(!started){ctx.moveTo(px,py);started=true}else ctx.lineTo(px,py)}ctx.stroke();ctx.restore();
+  }
+
+  function sampleCurve(fn,count=601){
+    const out=new Array(count);
+    for(let i=0;i<count;i++){const x=XMIN+i*(XMAX-XMIN)/(count-1);out[i]=fn(x)}
+    return out;
+  }
+  function sampleAt(samples,x){
+    if(!samples||!samples.length)return NaN;
+    const u=Math.max(0,Math.min(1,(x-XMIN)/(XMAX-XMIN)))*(samples.length-1);
+    const i=Math.floor(u),j=Math.min(samples.length-1,i+1),t=u-i;
+    return samples[i]*(1-t)+samples[j]*t;
+  }
+  function easeInOut(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
+  function displayApprox(x){
+    if(!morph.active||!morph.from||!morph.to)return approx(x,N);
+    const t=easeInOut(morph.t),a=sampleAt(morph.from,x),b=sampleAt(morph.to,x);
+    return a+(b-a)*t;
+  }
+  function drawMain(){
+    const {ctx,w,h}=dprCanvas(main,480);grid(ctx,w,h);
+    if(model){
+      const def=acts[activation.value];
+      if(visibility.allUnits){
+        model.hinges.forEach((q,i)=>{
+          if(i===selected && visibility.selected) return;
+          ctx.save();ctx.globalAlpha=.24;
+          pathFn(ctx,w,h,x=>contribution(x,i),def.color,1.25,[4,6]);
+          ctx.restore();
+        });
+      }
+      if(model.hinges[selected]){
+        const q=model.hinges[selected], px=sx(q.x,w), col=def.color;
+        if(visibility.guides){
+          ctx.save();ctx.strokeStyle=col+'88';ctx.setLineDash([5,6]);ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,h);ctx.stroke();ctx.restore();
+        }
+        if(visibility.selected) pathFn(ctx,w,h,x=>contribution(x,selected),col,1.8,[6,5]);
+      }
+    }
+    if(visibility.target) pathFn(ctx,w,h,target,'#ffd166',2.7);
+    if(visibility.approx) pathFn(ctx,w,h,displayApprox,'#52d9ff',3.1);
+    if(model && visibility.points){
+      ctx.fillStyle=acts[activation.value].color;
+      model.hinges.forEach((q,i)=>{const y=displayApprox(q.x);ctx.beginPath();ctx.arc(sx(q.x,w),sy(y,h),i===selected?5:3.3,0,Math.PI*2);ctx.fill()});
+    }
+  }
+
+  function drawUnit(){
+    if(!model||!model.hinges[selected])return; const q=model.hinges[selected],def=acts[activation.value];const {ctx,w,h}=dprCanvas(unitCanvas,155);
+    ctx.clearRect(0,0,w,h);ctx.fillStyle='#071018';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#173447';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.moveTo(w/2,0);ctx.lineTo(w/2,h);ctx.stroke();
+    const vals=[]; for(let p=0;p<=w;p+=2){const x=ix(p,w), y=contribution(x,selected);vals.push([p,y])}
+    let max=Math.max(1,...vals.map(v=>Math.abs(v[1])));ctx.strokeStyle=def.color;ctx.lineWidth=2.4;ctx.beginPath();vals.forEach(([p,y],j)=>{const yy=h/2-y/max*(h*.38);if(j===0)ctx.moveTo(p,yy);else ctx.lineTo(p,yy)});ctx.stroke();
+    const bx=sx(q.x,w);ctx.fillStyle='#ffd0df';ctx.beginPath();ctx.arc(bx,h/2,4,0,Math.PI*2);ctx.fill();
+  }
+
+  function drawActivationLab(){
+    const key=activation.value, def=acts[key], {ctx,w,h}=dprCanvas(actCanvas,285), ZMIN=-6,ZMAX=6;
+    ctx.clearRect(0,0,w,h);ctx.fillStyle='#071018';ctx.fillRect(0,0,w,h);
+    const samples=[];for(let i=0;i<=300;i++){const z=ZMIN+i*(ZMAX-ZMIN)/300;samples.push([z,def.fn(z),def.d(z)])}
+    const vals=samples.flatMap(v=>[v[1],v[2]]);let ymin=Math.min(-1,...vals),ymax=Math.max(1,...vals);if(key==='relu'||key==='leaky'||key==='softplus')ymax=Math.min(7,Math.max(3,ymax));
+    const X=z=>(z-ZMIN)/(ZMAX-ZMIN)*w, Y=v=>h-(v-ymin)/(ymax-ymin)*h;
+    ctx.strokeStyle='#173447';ctx.lineWidth=1;for(let z=-6;z<=6;z++){ctx.beginPath();ctx.moveTo(X(z),0);ctx.lineTo(X(z),h);ctx.stroke()}
+    for(let y=Math.ceil(ymin);y<=Math.floor(ymax);y++){ctx.beginPath();ctx.moveTo(0,Y(y));ctx.lineTo(w,Y(y));ctx.stroke()}
+    ctx.strokeStyle='#587488';ctx.beginPath();ctx.moveTo(X(0),0);ctx.lineTo(X(0),h);ctx.moveTo(0,Y(0));ctx.lineTo(w,Y(0));ctx.stroke();
+    if(visibility.activation){ctx.strokeStyle=def.color;ctx.lineWidth=3;ctx.beginPath();samples.forEach(([z,v],i)=>i?ctx.lineTo(X(z),Y(v)):ctx.moveTo(X(z),Y(v)));ctx.stroke();}
+    if(visibility.derivative){ctx.strokeStyle='#52d9ff';ctx.lineWidth=1.8;ctx.setLineDash([6,5]);ctx.beginPath();samples.forEach(([z,v,d],i)=>i?ctx.lineTo(X(z),Y(d)):ctx.moveTo(X(z),Y(d)));ctx.stroke();ctx.setLineDash([]);}
+    const z=+$('#zProbe').value, v=def.fn(z), d=def.d(z);
+    if(visibility.activation){ctx.fillStyle=def.color;ctx.beginPath();ctx.arc(X(z),Y(v),5,0,Math.PI*2);ctx.fill();}
+    if(visibility.derivative){ctx.fillStyle='#52d9ff';ctx.beginPath();ctx.arc(X(z),Y(d),4,0,Math.PI*2);ctx.fill();}
+    ctx.font='11px ui-monospace,monospace';
+    if(visibility.activation){ctx.fillStyle='#93aabc';ctx.fillText('σ(z)',10,16);}
+    if(visibility.derivative){ctx.fillStyle='#52d9ff';ctx.fillText("σ′(z)",visibility.activation?52:10,16);}
+    $('#zReadout').textContent=`z = ${z.toFixed(1)}   σ(z) = ${v.toFixed(3)}   σ′(z) = ${d.toFixed(3)}`;
+  }
+
+  function drawNetwork(){
+    if(!model)return; const shown=Math.min(N,10);let nodes='',edges='';
+    const outX=610,cx=350,top=35,bottom=265,ys=[],def=acts[activation.value];
+    for(let i=0;i<shown;i++) ys.push(shown===1?150:top+i*(bottom-top)/(shown-1));
+    ys.forEach((y,i)=>{edges+=`<line x1="110" y1="150" x2="${cx-24}" y2="${y}" stroke="#20455a" stroke-width="1.2"/>`;edges+=`<line x1="${cx+24}" y1="${y}" x2="590" y2="150" stroke="#20455a" stroke-width="1.2"/>`;const active=i===selected;nodes+=`<g class="nnode" data-i="${i}" style="cursor:pointer"><circle cx="${cx}" cy="${y}" r="${active?21:18}" fill="${active?'#16202a':'#0b1a24'}" stroke="${active?def.color:'#3e718b'}" stroke-width="${active?2.8:1.5}"/><text x="${cx}" y="${y+4}" text-anchor="middle" fill="${active?'#ffffff':'#bfeaf7'}" font-size="11">h${i+1}</text></g>`});
+    if(N>10) nodes+=`<text x="350" y="287" text-anchor="middle" fill="#7894a6" font-size="11">+ ${N-10} more neurons</text>`;
+    svg.innerHTML=`${edges}<circle cx="90" cy="150" r="25" fill="#0a1b26" stroke="#52d9ff" stroke-width="2"/><text x="90" y="155" text-anchor="middle" fill="#dff9ff" font-size="17">x</text><text x="90" y="196" text-anchor="middle" fill="#6f8b9e" font-size="11">input</text>${nodes}<circle cx="610" cy="150" r="27" fill="#0a1b26" stroke="#ffd166" stroke-width="2"/><text x="610" y="155" text-anchor="middle" fill="#fff0bd" font-size="17">ĝ(x)</text><text x="610" y="196" text-anchor="middle" fill="#6f8b9e" font-size="11">sum</text><text x="350" y="18" text-anchor="middle" fill="#7792a4" font-size="11">${def.name} hidden layer</text>`;
+    svg.querySelectorAll('.nnode').forEach(el=>el.addEventListener('click',()=>{selected=Math.min(+el.dataset.i,N-1);render()}));
+  }
+
+  function fmt(v){return (Math.abs(v)<.0005?0:v).toFixed(3)}
+  function updateInspector(){
+    if(!model)return; selected=Math.max(0,Math.min(selected,N-1)); const q=model.hinges[selected],def=acts[activation.value];
+    $('#selectedName').textContent=`Neuron ${selected+1}`;$('#wVal').textContent=fmt(q.w);$('#bVal').textContent=fmt(q.b);$('#aVal').textContent=fmt(q.a);
+    $('#selectedFormula').innerHTML=`z<sub>${selected+1}</sub> = <b>${fmt(q.w)}</b>x ${q.b>=0?'+':'−'} ${Math.abs(q.b).toFixed(3)}<br>h<sub>${selected+1}</sub>(x) = ${def.name}(z<sub>${selected+1}</sub>)<br>contribution = <b>${fmt(q.a)}</b> · h<sub>${selected+1}</sub>(x)`;
+    $('#selectedBadge').textContent=def.name;
+    if(model.kind==='constructive') $('#explainBox').innerHTML=`Breakpoint <b>x = ${q.x.toFixed(2)}</b>. The slope changes by <b>Δm = ${fmt(q.a)}</b> here, so this neuron's output weight is exactly that slope change.`;
+    else $('#explainBox').innerHTML=`Activation center <b>x ≈ ${q.x.toFixed(2)}</b>. Here the hidden-unit positions are fixed for illustration, while the output weights are solved by a small least-squares fit to the target samples.`;
+  }
+
+  function updateFormula(){
+    if(!model)return; const def=acts[activation.value];
+    if(model.kind==='constructive'){
+      const terms=model.hinges.slice(0,Math.min(N,4)).map(q=>`${q.a>=0?'+':'−'} ${Math.abs(q.a).toFixed(2)} ReLU(x ${q.x>=0?'−':'+'} ${Math.abs(q.x).toFixed(2)})`).join('<br>');
+      $('#formulaBox').innerHTML=`<b>ĝ(x)</b> = ${model.y0.toFixed(2)} + ${model.m0.toFixed(2)}(x − ${XMIN.toFixed(1)})<br>${terms}${N>4?`<br>… + ${N-4} more hinge${N-4>1?'s':''}`:''}`;
+    } else {
+      const terms=model.hinges.slice(0,Math.min(N,3)).map(q=>`${q.a>=0?'+':'−'} ${Math.abs(q.a).toFixed(2)} ${def.name}(${q.w.toFixed(2)}x ${q.b>=0?'+':'−'} ${Math.abs(q.b).toFixed(2)})`).join('<br>');
+      $('#formulaBox').innerHTML=`<b>ĝ(x)</b> = ${model.baseBias.toFixed(2)} ${model.baseSlope>=0?'+':'−'} ${Math.abs(model.baseSlope).toFixed(2)}x<br>${terms}${N>3?`<br>… + ${N-3} more hidden unit${N-3>1?'s':''}`:''}`;
+    }
+  }
+
+  function updateMetrics(){
+    let se=0,me=0,count=401;for(let i=0;i<count;i++){const x=XMIN+i*(XMAX-XMIN)/(count-1),e=Math.abs(target(x)-approx(x,N));se+=e*e;me=Math.max(me,e)}
+    $('#mMse').textContent=(se/count).toFixed(4);$('#mMax').textContent=me.toFixed(3);$('#mNeurons').textContent=N;$('#mBreaks').textContent=N;
+    $('#mBreakLabel').textContent=activation.value==='relu'?'Breakpoints':'Activation centers';
+  }
+  function updateSteps(){
+    const steps=$('#steps');steps.innerHTML=''; for(let i=1;i<=16;i++){const s=document.createElement('button');s.className='step '+(i===N?'active':i<N?'done':'');s.textContent=i;s.title=`${i} hidden neuron${i>1?'s':''}`;s.onclick=()=>{N=i;neurons.value=N;selected=Math.min(selected,N-1);sync()};steps.appendChild(s); if(i<16){const l=document.createElement('div');l.className='line';steps.appendChild(l)}}
+  }
+  function updateActivationUI(){
+    const key=activation.value,def=acts[key];
+    document.querySelectorAll('.activation-card').forEach(b=>b.classList.toggle('active',b.dataset.act===key));
+    $('#activationFormula').textContent=def.formula;$('#actRange').textContent=def.range;$('#actSmooth').textContent=def.smooth;$('#actZero').textContent=def.zero;$('#actRole').textContent=def.role;$('#activationExplain').textContent=def.explain;
+    $('#networkSubtitle').textContent=`1 input → ${def.name} hidden layer → linear output`;
+    $('#canvasSubtitle').textContent=key==='relu'?'Target vs. exact piecewise-linear ReLU construction':`Target vs. ${def.name} hidden-basis approximation`;
+    $('#modeBadge').innerHTML=key==='relu'?'Mode: <b>constructive ReLU proof</b>':'Mode: <b>activation comparison fit</b>';
+    drawActivationLab();
+  }
+  function syncLabels(){neurons.value=N;$('#nText').textContent=N;$('#nChip').textContent=N;}
+  function paintUI(){syncLabels();updateMetrics();updateFormula();updateInspector();updateSteps();updateActivationUI();drawMain();drawUnit();drawNetwork();}
+  function render(){morph.active=false;buildModel();paintUI();}
+  function sync(animateApprox=true){
+    const from=(animateApprox&&model)?sampleCurve(displayApprox):null;
+    buildModel();
+    const to=animateApprox?sampleCurve(x=>approx(x,N)):null;
+    if(from&&to){morph={active:true,t:0,from,to};}else{morph={active:false,t:1,from:null,to:null};}
+    paintUI();
+    if(!morph.active)return;
+    const start=performance.now(),duration=520;
+    function frame(now){
+      morph.t=Math.min(1,(now-start)/duration);
+      drawMain();
+      if(morph.t<1) requestAnimationFrame(frame);
+      else {morph.active=false;morph.from=null;morph.to=null;drawMain();}
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function applyWindow(){
+    const vals=[+$('#xMin').value,+$('#xMax').value,+$('#yMin').value,+$('#yMax').value];
+    if(vals.every(Number.isFinite)&&vals[0]<vals[1]&&vals[2]<vals[3]){[XMIN,XMAX,YMIN,YMAX]=vals;customPts=[];sync(false)}
+  }
+  function autoFitY(){
+    let lo=Infinity,hi=-Infinity;for(let i=0;i<401;i++){const x=XMIN+i*(XMAX-XMIN)/400,y=target(x);if(Number.isFinite(y)){lo=Math.min(lo,y);hi=Math.max(hi,y)}}
+    if(!Number.isFinite(lo)||!Number.isFinite(hi))return; const pad=Math.max(.75,(hi-lo)*.18);YMIN=Math.floor((lo-pad)*10)/10;YMAX=Math.ceil((hi+pad)*10)/10;$('#yMin').value=YMIN;$('#yMax').value=YMAX;sync(false);
+  }
+
+  neurons.addEventListener('input',e=>{N=+e.target.value;selected=Math.min(selected,N-1);sync()});
+  $('#addBtn').onclick=()=>{N=Math.min(16,N+1);selected=N-1;sync()};
+  $('#removeBtn').onclick=()=>{N=Math.max(1,N-1);selected=Math.min(selected,N-1);sync()};
+  preset.onchange=()=>{customPts=[];$('#drawNote').classList.toggle('show',preset.value==='draw');sync(false)};
+  activation.onchange=()=>{selected=Math.min(selected,N-1);sync()};
+  document.querySelectorAll('.activation-card').forEach(b=>b.onclick=()=>{activation.value=b.dataset.act;activation.dispatchEvent(new Event('change'))});
+  const visibilityControls={showTarget:'target',showApprox:'approx',showSelected:'selected',showAllUnits:'allUnits',showGuides:'guides',showPoints:'points'};
+  Object.entries(visibilityControls).forEach(([id,key])=>$('#'+id).addEventListener('change',e=>{visibility[key]=e.target.checked;drawMain()}));
+  $('#showActivationCurve').addEventListener('change',e=>{visibility.activation=e.target.checked;drawActivationLab()});
+  $('#showDerivativeCurve').addEventListener('change',e=>{visibility.derivative=e.target.checked;drawActivationLab()});
+  $('#zProbe').addEventListener('input',drawActivationLab);
+  ['xMin','xMax','yMin','yMax'].forEach(id=>$('#'+id).addEventListener('change',applyWindow));
+  $('#autoYBtn').onclick=autoFitY;
+  $('#playBtn').onclick=()=>{if(playTimer)clearInterval(playTimer);N=1;selected=0;sync();playTimer=setInterval(()=>{if(N>=16){clearInterval(playTimer);playTimer=null;return}N++;selected=N-1;sync()},650)};
+
+  function pointerPos(e){const r=main.getBoundingClientRect();return {px:e.clientX-r.left,py:e.clientY-r.top,w:r.width,h:r.height}}
+  main.addEventListener('pointerdown',e=>{if(preset.value!=='draw')return;drawing=true;main.setPointerCapture(e.pointerId);customPts=[];const p=pointerPos(e);customPts.push({x:ix(p.px,p.w),y:iy(p.py,p.h)});render()});
+  main.addEventListener('pointermove',e=>{if(!drawing||preset.value!=='draw')return;const p=pointerPos(e);const x=ix(p.px,p.w),y=Math.max(YMIN,Math.min(YMAX,iy(p.py,p.h)));const last=customPts.at(-1);if(!last||Math.abs(x-last.x)>(XMAX-XMIN)/220){customPts.push({x,y});customPts=customPts.filter(v=>v.x>=XMIN&&v.x<=XMAX).sort((a,b)=>a.x-b.x);render()}});
+  main.addEventListener('pointerup',()=>{drawing=false;sync(false)});main.addEventListener('pointercancel',()=>drawing=false);
+
+  window.addEventListener('resize',()=>{drawMain();drawUnit();drawActivationLab()});
+  render();
+})();
+</script>
+</body>
+</html>
